@@ -30,10 +30,10 @@ class TextDisplayApp(QWidget):
         self.outer_optical_frame_x = QLineEdit(self)
         self.outer_optical_frame_x.setPlaceholderText("Outer Optical Frame [mm]")
         x_layout.addWidget(self.outer_optical_frame_x)        
-        x_group.setLayout(x_layout)
         self.MH_x = QLineEdit(self)
         self.MH_x.setPlaceholderText("Mounting Hole Distance [mm]")
         x_layout.addWidget(self.MH_x)       
+        x_group.setLayout(x_layout)
 
         # Y-Axis Column
         y_group = QGroupBox("Y-Axis")
@@ -56,10 +56,10 @@ class TextDisplayApp(QWidget):
         self.outer_optical_frame_y = QLineEdit(self)
         self.outer_optical_frame_y.setPlaceholderText("Outer Optical Frame [mm]")
         y_layout.addWidget(self.outer_optical_frame_y)    
-        y_group.setLayout(y_layout)
         self.MH_y = QLineEdit(self)
         self.MH_y.setPlaceholderText("Mounting Hole Distance [mm]")
         y_layout.addWidget(self.MH_y)
+        y_group.setLayout(y_layout)
 
         # General Information Row
         info_group = QGroupBox("General Information")
@@ -105,47 +105,57 @@ class TextDisplayApp(QWidget):
 
     def make_kicad_footprint(self, data, row_labels, bga_start_x, bga_start_y, optical_offset_x_mm, optical_offset_y_mm):
         """Generate the full KiCad .kicad_mod footprint text."""
-        footprint = []
-        footprint.append(f'(module "BGA_Footprint" (layer "F.Cu") (tedit {uuid.uuid4().hex[:8]})')
+        try:
+            footprint = []
+            footprint.append(f'(module "BGA_Footprint" (layer "F.Cu") (tedit {uuid.uuid4().hex[:8]})')
 
-        # reference + value
-        footprint.append(f'  (fp_text reference "REF**" (at 0 {(data["package_dim_y"]/2)+1}) (layer "F.SilkS"))')
-        footprint.append(f'  (fp_text value "BGA_Footprint" (at 0 {(data["package_dim_y"]/-2)-1}) (layer "F.Fab"))')
-        
-        # Package Boundaries Fabrication and Courtyards
-        half_x = data["package_dim_x"] / 2
-        half_y = data["package_dim_y"] / 2
-        court_x = data["package_dim_x"] / 2 + 0.1
-        court_y = data["package_dim_y"] / 2 + 0.1
-        package_fab = f'''  (fp_rect (start {-half_x} {-half_y}) (end {half_x} {half_y}) 
+            # reference + value
+            ref_y = (data["package_dim_y"]/2) + 1
+            val_y = (data["package_dim_y"]/-2) - 1
+            footprint.append(f'  (fp_text reference "REF**" (at 0 {ref_y:.4f}) (layer "F.SilkS"))')
+            footprint.append(f'  (fp_text value "BGA_Footprint" (at 0 {val_y:.4f}) (layer "F.Fab"))')
+            
+            # Package Boundaries Fabrication and Courtyards
+            half_x = data["package_dim_x"] / 2
+            half_y = data["package_dim_y"] / 2
+            court_x = data["package_dim_x"] / 2 + 0.1
+            court_y = data["package_dim_y"] / 2 + 0.1
+            
+            package_fab = f'''  (fp_rect (start {-half_x:.4f} {-half_y:.4f}) (end {half_x:.4f} {half_y:.4f}) 
         (stroke (width 0.10) (type solid)) (layer "F.Fab") (fill no) (uuid "{uuid.uuid4()}")
     )'''
-        footprint.append(package_fab)
-        package_courtyard = f'''  (fp_rect (start {-court_x} {-court_y}) (end {court_x} {court_y}) 
+            footprint.append(package_fab)
+            
+            package_courtyard = f'''  (fp_rect (start {-court_x:.4f} {-court_y:.4f}) (end {court_x:.4f} {court_y:.4f}) 
         (stroke (width 0.10) (type solid)) (layer "F.CrtYd") (fill no) (uuid "{uuid.uuid4()}")
     )'''
-        footprint.append(package_courtyard)
+            footprint.append(package_courtyard)
 
-        # Optical Frame Rectangles 
-        inner_half_x = (data["inner_optical_frame_x"] / 2) + optical_offset_x_mm
-        inner_half_y = (data["inner_optical_frame_y"] / 2) - optical_offset_y_mm
-        outer_half_x = (data["outer_optical_frame_x"] / 2) + optical_offset_x_mm
-        outer_half_y = (data["outer_optical_frame_y"] / 2) - optical_offset_y_mm
+            # Optical Frame Rectangles 
+            inner_half_x = (data["inner_optical_frame_x"] / 2) + optical_offset_x_mm
+            inner_half_y = (data["inner_optical_frame_y"] / 2) + optical_offset_y_mm
+            outer_half_x = (data["outer_optical_frame_x"] / 2) + optical_offset_x_mm
+            outer_half_y = (data["outer_optical_frame_y"] / 2) + optical_offset_y_mm
 
-        inner_frame = f'''  (fp_rect (start {-inner_half_x} {-inner_half_y}) (end {inner_half_x+2*-optical_offset_x_mm} {inner_half_y+2*optical_offset_y_mm})
+            inner_end_x = inner_half_x + 2 * (-optical_offset_x_mm)
+            inner_end_y = inner_half_y + 2 * -optical_offset_y_mm
+            outer_end_x = outer_half_x + 2 * (-optical_offset_x_mm)
+            outer_end_y = outer_half_y + 2 * -optical_offset_y_mm
+
+            inner_frame = f'''  (fp_rect (start {-inner_half_x:.4f} {-inner_half_y:.4f}) (end {inner_end_x:.4f} {inner_end_y:.4f})
         (stroke (width 0.10) (type solid)) (layer "F.SilkS") (fill no) (uuid "{uuid.uuid4()}")
     )'''
-        outer_frame = f'''  (fp_rect (start {-outer_half_x} {-outer_half_y}) (end {outer_half_x+2*-optical_offset_x_mm} {outer_half_y+2*optical_offset_y_mm})
+            outer_frame = f'''  (fp_rect (start {-outer_half_x:.4f} {-outer_half_y:.4f}) (end {outer_end_x:.4f} {outer_end_y:.4f})
         (stroke (width 0.10) (type solid)) (layer "F.SilkS") (fill no) (uuid "{uuid.uuid4()}")
     )'''
-        footprint.append(inner_frame)
-        footprint.append(outer_frame)
+            footprint.append(inner_frame)
+            footprint.append(outer_frame)
 
-        # Keep out Zone For Optical Frame 
-        keepouts = []
+            # Keep out Zone For Optical Frame 
+            keepouts = []
 
-        # Top strip
-        keepouts.append(f'''  (zone
+            # Top strip
+            keepouts.append(f'''  (zone
         (net 0)
         (net_name "")
         (layer "F.Cu")
@@ -158,15 +168,16 @@ class TextDisplayApp(QWidget):
         (fill (thermal_gap 0.5) (thermal_bridge_width 0.5))
         (polygon
         (pts
-            (xy {-outer_half_x} {inner_half_y+2*optical_offset_y_mm})
-            (xy {outer_half_x+2*-optical_offset_x_mm} {inner_half_y+2*optical_offset_y_mm})
-            (xy {outer_half_x+2*-optical_offset_x_mm} {outer_half_y+2*optical_offset_y_mm})
-            (xy {-outer_half_x} {outer_half_y+2*optical_offset_y_mm})
+            (xy {-outer_half_x:.4f} {inner_end_y:.4f})
+            (xy {outer_end_x:.4f} {inner_end_y:.4f})
+            (xy {outer_end_x:.4f} {outer_end_y:.4f})
+            (xy {-outer_half_x:.4f} {outer_end_y:.4f})
         )
         )
     )''')
-        # Bottom strip
-        keepouts.append(f'''  (zone
+            
+            # Bottom strip
+            keepouts.append(f'''  (zone
         (net 0)
         (net_name "")
         (layer "F.Cu")
@@ -179,15 +190,16 @@ class TextDisplayApp(QWidget):
         (fill (thermal_gap 0.5) (thermal_bridge_width 0.5))
         (polygon
         (pts
-            (xy {-outer_half_x} {-outer_half_y})
-            (xy {outer_half_x+2*-optical_offset_x_mm} {-outer_half_y})
-            (xy {outer_half_x+2*-optical_offset_x_mm} {-inner_half_y})
-            (xy {-outer_half_x} {-inner_half_y})
+            (xy {-outer_half_x:.4f} {-outer_half_y:.4f})
+            (xy {outer_end_x:.4f} {-outer_half_y:.4f})
+            (xy {outer_end_x:.4f} {-inner_half_y:.4f})
+            (xy {-outer_half_x:.4f} {-inner_half_y:.4f})
         )
         )
     )''')
-        # Left strip
-        keepouts.append(f'''  (zone
+            
+            # Left strip
+            keepouts.append(f'''  (zone
         (net 0)
         (net_name "")
         (layer "F.Cu")
@@ -200,15 +212,16 @@ class TextDisplayApp(QWidget):
         (fill (thermal_gap 0.5) (thermal_bridge_width 0.5))
         (polygon
         (pts
-            (xy {-outer_half_x} {-inner_half_y})
-            (xy {-inner_half_x} {-inner_half_y})
-            (xy {-inner_half_x} {inner_half_y+2*optical_offset_y_mm})
-            (xy {-outer_half_x} {inner_half_y+2*optical_offset_y_mm})
+            (xy {-outer_half_x:.4f} {-inner_half_y:.4f})
+            (xy {-inner_half_x:.4f} {-inner_half_y:.4f})
+            (xy {-inner_half_x:.4f} {inner_end_y:.4f})
+            (xy {-outer_half_x:.4f} {inner_end_y:.4f})
         )
         )
     )''')
-        # Right strip
-        keepouts.append(f'''  (zone
+            
+            # Right strip
+            keepouts.append(f'''  (zone
         (net 0)
         (net_name "")
         (layer "F.Cu")
@@ -221,154 +234,276 @@ class TextDisplayApp(QWidget):
         (fill (thermal_gap 0.5) (thermal_bridge_width 0.5))
         (polygon
         (pts
-            (xy {inner_half_x+2*-optical_offset_x_mm} {-inner_half_y})
-            (xy {outer_half_x+2*-optical_offset_x_mm} {-inner_half_y})
-            (xy {outer_half_x+2*-optical_offset_x_mm} {inner_half_y+2*optical_offset_y_mm})
-            (xy {inner_half_x+2*-optical_offset_x_mm} {inner_half_y+2*optical_offset_y_mm})
+            (xy {inner_end_x:.4f} {-inner_half_y:.4f})
+            (xy {outer_end_x:.4f} {-inner_half_y:.4f})
+            (xy {outer_end_x:.4f} {inner_end_y:.4f})
+            (xy {inner_end_x:.4f} {inner_end_y:.4f})
         )
         )
     )''')
-        # Append all 4 keepout strips
-        footprint.extend(keepouts)
+            
+            # Append all 4 keepout strips
+            footprint.extend(keepouts)
 
-        # Mounting Holes (Placement and Keepout Zones)
-        MH = []
+            # --- Mounting Holes (Placement and Keepout Zones) ---
+            MH = []
 
-        # Left MH
-        MH.append(f'''  (pad "MH1" thru_hole circle
-            (at {-(data["MH_x"]/2 + optical_offset_x_mm)} {-(data["MH_y"] + optical_offset_y_mm)})
-            (size {data["MH_Size"]} {data["MH_Size"]})
-            (drill {data["MH_Drill"]})
+            # Left MH
+            mh_left_x = -(data["MH_x"]/2 + optical_offset_x_mm)
+            mh_left_y = -(data["MH_y"] + optical_offset_y_mm)
+            MH.append(f'''  (pad "MH1" thru_hole circle
+            (at {mh_left_x:.4f} {mh_left_y:.4f})
+            (size {data["MH_Size"]:.4f} {data["MH_Size"]:.4f})
+            (drill {data["MH_Drill"]:.4f})
             (layers "*.Cu" "*.Mask")
             (remove_unused_layers no)
             (uuid "{uuid.uuid4()}")
         )''')
 
-        # Right MH
-        MH.append(f'''  (pad "MH2" thru_hole circle
-            (at {(data["MH_x"]/2 - optical_offset_x_mm)} {-(data["MH_y"] + optical_offset_y_mm)})
-            (size {data["MH_Size"]} {data["MH_Size"]})
-            (drill {data["MH_Drill"]})
+            # Right MH
+            mh_right_x = (data["MH_x"]/2 - optical_offset_x_mm)
+            mh_right_y = -(data["MH_y"] + optical_offset_y_mm)
+            MH.append(f'''  (pad "MH2" thru_hole circle
+            (at {mh_right_x:.4f} {mh_right_y:.4f})
+            (size {data["MH_Size"]:.4f} {data["MH_Size"]:.4f})
+            (drill {data["MH_Drill"]:.4f})
             (layers "*.Cu" "*.Mask")
             (remove_unused_layers no)
             (uuid "{uuid.uuid4()}")
         )''')
 
-        footprint.extend(MH)
+            footprint.extend(MH)
+
+            # --- Define Mounting Hole Centers ---
+            center_x_L = mh_left_x
+            center_y_L = mh_left_y
+            center_x_R = mh_right_x
+            center_y_R = mh_right_y
+
+            def generate_arc(center_x, center_y, radius, outer_half_x, optical_offset_y_mm, layer, location="L"):
+                """
+                Generates a KiCad fp_arc with start and end points + angle.
+                Falls back to a full fp_circle if no intersection is found.
+                """
+                try:
+                    # --- Find intersection of circle and vertical line ---
+                    def find_intersection(cx, cy, r, x_line):
+                        dx = x_line - cx
+                        if abs(dx) > r:
+                            return None  # No intersection
+                        dy = math.sqrt(r**2 - dx**2)
+                        y1 = cy + dy
+                        y2 = cy - dy
+                        return (x_line, y1), (x_line, y2)
+
+                    if location == "L":
+                        intersections = find_intersection(center_x, center_y, radius, -outer_half_x)
+                    elif location == "R":
+                        intersections = find_intersection(center_x, center_y, radius, outer_half_x)
+                    else:
+                        raise ValueError("location must be 'L' or 'R'")
+
+                    if intersections is None:
+                        # --- Fallback: full circle ---
+                        return f'''  (fp_circle
+                (center {center_x:.6f} {center_y:.6f})
+                (end {center_x + radius:.6f} {center_y:.6f})
+                (stroke (width 0.10) (type default))
+                (fill no)
+                (layer "{layer}")
+                (uuid "{uuid.uuid4()}")
+            )'''
+
+                    (x1, y1), (x2, y2) = intersections
+
+                    # Choose the intersection point for the arc start
+                    start_x, start_y = (x1, y1) if location == "L" else (x2, y2)
+
+                    # Determine the angle of start point relative to center
+                    angle_rad = math.atan2(start_y - center_y, start_x - center_x)
+                    angle_deg = math.degrees(angle_rad)
+                    if location == "L":
+                        angle_span = 360 - (2 * abs(angle_deg))
+                    elif location == "R":
+                        angle_span = 2 * abs(angle_deg)
+
+                    # --- Return KiCad arc ---
+                    return f'''  (fp_arc
+                (start {center_x:.6f} {center_y:.6f}) 
+                (end {start_x:.6f} {start_y - optical_offset_y_mm:.6f}) 
+                (angle {angle_span:.6f})
+                (stroke (width 0.10) (type default))
+                (layer "{layer}")
+                (uuid "{uuid.uuid4()}")
+            )'''
+                except Exception as e:
+                    # Last resort fallback: circle
+                    return f'''  (fp_circle
+                (center {center_x:.6f} {center_y:.6f})
+                (end {center_x + radius:.6f} {center_y:.6f})
+                (stroke (width 0.10) (type default))
+                (fill no)
+                (layer "{layer}")
+                (uuid "{uuid.uuid4()}")
+            )'''
 
 
-        # Mounting Hole SilkScreen + Fab Lines
-        MH_silk_fab = []
+            # --- Mounting Hole Silkscreen + Fab ---
+            MH_silk_fab = []
 
-        # Define centers
-        center_x_L = -(data["MH_x"]/2 + optical_offset_x_mm)
-        center_y_L = -(data["MH_y"] + optical_offset_y_mm)
-        center_x_R = (data["MH_x"]/2 - optical_offset_x_mm)
-        center_y_R = -(data["MH_y"] + optical_offset_y_mm)
-
-        # Function to generate a 3-point arc
-        def generate_arc(center_x, center_y, radius, layer,span_angle_deg=270, location="L"):
-            """
-            Generates a KiCad fp_arc with start and end points + angle.
-            start_angle_deg = degrees CCW from +X axis
-            span_angle_deg = sweep of the arc in degrees
-            """
-            if location == "L":
-                start_x = center_x + radius * math.cos(math.radians(45))
-                start_y = center_y + radius * math.sin(math.radians(45))
-            elif location == "R":   
-                start_x = center_x - radius * math.cos(math.radians(45))   
-                start_y = center_y - radius * math.sin(math.radians(45))     
-
-            # start = center point of arc
-            # end = starting point of arc
-            # just how it works in KiCad
-            return f'''  (fp_arc
-            (start {center_x} {center_y}) 
-            (end {start_x} {(start_y-optical_offset_y_mm)}) 
-            (angle {span_angle_deg})
-            (stroke
-                (width 0.10)
-                (type default)
-            )
-            (layer "{layer}")
-            (uuid "{uuid.uuid4()}")
-        )'''
-
-        # Add left MH circles (Fab and Silkscreen)
-        for offset in [0.15, 0.58]:
-            MH_silk_fab.append(f'''  (fp_circle
-            (center {center_x_L} {center_y_L})
-            (end {center_x_L + (data["MH_Size"]/2 + offset)} {center_y_L})
+            # Add left MH circles + arcs
+            for offset in [0.15, 0.58]:
+                MH_silk_fab.append(f'''  (fp_circle
+            (center {center_x_L:.4f} {center_y_L:.4f})
+            (end {center_x_L + (data["MH_Size"]/2 + offset):.4f} {center_y_L:.4f})
             (stroke (width 0.10) (type default))
             (fill no)
             (layer "F.Fab")
             (uuid "{uuid.uuid4()}")
         )''')
-            MH_silk_fab.append(generate_arc(center_x_L, center_y_L, data["MH_Size"]/2 + 0.15, "F.SilkS", location="L"))
-            MH_silk_fab.append(generate_arc(center_x_L, center_y_L, data["MH_Size"]/2 + 0.58, "F.SilkS", location="L"))
+                arc = generate_arc(center_x_L, center_y_L, data["MH_Size"]/2 + offset, outer_half_x, optical_offset_y_mm, "F.SilkS", "L")
+                if arc:
+                    MH_silk_fab.append(arc)
 
-
-        # Add right MH circles (Fab and Silkscreen)
-        for offset in [0.15, 0.58]:
-            MH_silk_fab.append(f'''  (fp_circle
-            (center {center_x_R} {center_y_R})
-            (end {center_x_R + (data["MH_Size"]/2 + offset)} {center_y_R})
+            # Add right MH circles + arcs
+            for offset in [0.15, 0.58]:
+                MH_silk_fab.append(f'''  (fp_circle
+            (center {center_x_R:.4f} {center_y_R:.4f})
+            (end {center_x_R + (data["MH_Size"]/2 + offset):.4f} {center_y_R:.4f})
             (stroke (width 0.10) (type default))
             (fill no)
             (layer "F.Fab")
             (uuid "{uuid.uuid4()}")
         )''')
-            MH_silk_fab.append(generate_arc(center_x_R, center_y_R, data["MH_Size"]/2 + 0.15, "F.SilkS", location="R"))
-            MH_silk_fab.append(generate_arc(center_x_R, center_y_R, data["MH_Size"]/2 + 0.58, "F.SilkS", location="R"))
+                arc = generate_arc(center_x_R, center_y_R, data["MH_Size"]/2 + offset, outer_end_x, optical_offset_y_mm, "F.SilkS", "R")
+                if arc:
+                    MH_silk_fab.append(arc)
 
-        footprint.extend(MH_silk_fab)
+            footprint.extend(MH_silk_fab)
 
-        # pad generation
-        for j in range(data["y_pads"]):   # loop rows (letters)
-            row_label = row_labels[j]
-            for i in range(data["x_pads"]):   # loop columns (numbers)
-                col_number = i + 1
-                pad_x = bga_start_x + i * data["pitch_x"]
-                pad_y = -(bga_start_y + j * data["pitch_y"])
-                pad_name = f"{row_label}{col_number}"
-                pad_uuid = str(uuid.uuid4())
+            # Add keepout zones for MH
+            def generate_keepout_zone(center_x, center_y, inner_r, outer_r, num_points=64):
+                """
+                Generate a KiCad keepout zone polygon between inner_r and outer_r.
+                """
+                pts = []
 
-                pad_block = f'''  (pad "{pad_name}" smd circle
+                # Outer circle (counter-clockwise)
+                for i in range(num_points):
+                    theta = 2 * math.pi * i / num_points
+                    x = center_x + outer_r * math.cos(theta)
+                    y = center_y + outer_r * math.sin(theta)
+                    pts.append(f'(xy {x:.6f} {y:.6f})')
+
+                # Inner circle (clockwise)
+                for i in reversed(range(num_points)):
+                    theta = 2 * math.pi * i / num_points
+                    x = center_x + inner_r * math.cos(theta)
+                    y = center_y + inner_r * math.sin(theta)
+                    pts.append(f'(xy {x:.6f} {y:.6f})')
+
+                # Wrap into zone
+                zone = f'''  (zone
+                (net 0)
+                (net_name "")
+                (layer "F.Cu")
+                (uuid "{uuid.uuid4()}")
+                (hatch edge 0.5)
+                (connect_pads (clearance 0))
+                (min_thickness 0.25)
+                (filled_areas_thickness no)
+                (keepout
+                (tracks allowed)
+                (vias allowed)
+                (pads not_allowed)
+                (copperpour allowed)
+                (footprints not_allowed)
+                )
+                (polygon
+                (pts
+                    {' '.join(pts)}
+                )
+                )
+            )'''
+                return zone
+            inner_offset = 0.15
+            outer_offset = 0.58
+
+            # Left MH zone
+            keepout_L = generate_keepout_zone(center_x_L, center_y_L,
+                                            data["MH_Size"]/2 + inner_offset,
+                                            data["MH_Size"]/2 + outer_offset)
+            footprint.append(keepout_L)
+
+            # Right MH zone
+            keepout_R = generate_keepout_zone(center_x_R, center_y_R,
+                                            data["MH_Size"]/2 + inner_offset,
+                                            data["MH_Size"]/2 + outer_offset)
+            footprint.append(keepout_R)
+
+
+            # pad generation
+            for j in range(data["y_pads"]):   # loop rows (letters)
+                row_label = row_labels[j]
+                for i in range(data["x_pads"]):   # loop columns (numbers)
+                    col_number = i + 1
+                    pad_x = bga_start_x + i * data["pitch_x"]
+                    pad_y = -(bga_start_y + j * data["pitch_y"])
+                    pad_name = f"{row_label}{col_number}"
+                    pad_uuid = str(uuid.uuid4())
+
+                    pad_block = f'''  (pad "{pad_name}" smd circle
     (at {pad_x:.4f} {pad_y:.4f})
-    (size {data.get("pad_size"):.2f} {data.get("pad_size"):.2f})
+    (size {data["pad_size"]:.2f} {data["pad_size"]:.2f})
     (layers "F.Cu" "F.Paste" "F.Mask")
     (uuid "{pad_uuid}")
   )'''
-                footprint.append(pad_block)
+                    footprint.append(pad_block)
 
-        footprint.append(")")  # end module
-        return "\n".join(footprint)
+            footprint.append(")")  # end module
+            return "\n".join(footprint)
+            
+        except Exception as e:
+            print(f"Error in make_kicad_footprint: {e}")
+            raise
 
     def save_inputs(self):
         """Read user inputs, print coordinates, and generate footprint file."""
         try:
-            data = {
-                "x_pads": int(self.x_pads_entry.text() or 11),
-                "package_dim_x": float(self.package_dim_x.text() or 8.7555),
-                "pitch_x": float(self.pitch_x_entry.text() or 0.7),
-                "optical_offset_x": float(self.optical_offset_x.text() or -107.8988),
-                "inner_optical_frame_x": float(self.inner_optical_frame_x.text() or 14),
-                "outer_optical_frame_x": float(self.outer_optical_frame_x.text() or 16.5),
-                "MH_x": float(self.MH_x.text() or 20.0),
+            # Read inputs with proper error handling
+            def get_float_value(widget, default_value):
+                text = widget.text().strip()
+                if not text:
+                    return default_value
+                return float(text)
+                
+            def get_int_value(widget, default_value):
+                text = widget.text().strip()
+                if not text:
+                    return default_value
+                return int(text)
 
-                "y_pads": int(self.y_pads_entry.text() or 7),
-                "package_dim_y": float(self.package_dim_y.text() or 5.5118),
-                "pitch_y": float(self.pitch_y_entry.text() or 0.6),
-                "optical_offset_y": float(self.optical_offset_y.text() or -11.1802),
-                "inner_optical_frame_y": float(self.inner_optical_frame_y.text() or 14),
-                "outer_optical_frame_y": float(self.outer_optical_frame_y.text() or 16.5),
-                "MH_y": float(self.MH_y.text() or 0.0),
+            data = {
+                "x_pads": get_int_value(self.x_pads_entry, 11),
+                "package_dim_x": get_float_value(self.package_dim_x, 8.7555),
+                "pitch_x": get_float_value(self.pitch_x_entry, 0.7),
+                "optical_offset_x": get_float_value(self.optical_offset_x, -107.8988),
+                "inner_optical_frame_x": get_float_value(self.inner_optical_frame_x, 14),
+                "outer_optical_frame_x": get_float_value(self.outer_optical_frame_x, 16.5),
+                "MH_x": get_float_value(self.MH_x, 20.0),
+
+                "y_pads": get_int_value(self.y_pads_entry, 7),
+                "package_dim_y": get_float_value(self.package_dim_y, 5.5118),
+                "pitch_y": get_float_value(self.pitch_y_entry, 0.6),
+                "optical_offset_y": get_float_value(self.optical_offset_y, -11.1802),
+                "inner_optical_frame_y": get_float_value(self.inner_optical_frame_y, 14),
+                "outer_optical_frame_y": get_float_value(self.outer_optical_frame_y, 16.5),
+                "MH_y": get_float_value(self.MH_y, 0.0),
 
                 # default pad size (you can expose this in GUI later)
-                "pad_size": float(self.BGA_diameter.text() or 0.25),
-                "MH_Size": float(self.MH_Size.text() or 3.216),
-                "MH_Drill": float(self.MH_Drill.text() or 2.2),
+                "pad_size": get_float_value(self.BGA_diameter, 0.25),
+                "MH_Size": get_float_value(self.MH_Size, 3.216),
+                "MH_Drill": get_float_value(self.MH_Drill, 2.2),
             }
 
             # Convert offsets to mm
@@ -393,14 +528,20 @@ class TextDisplayApp(QWidget):
 
             # Generate KiCad footprint file
             footprint_text = self.make_kicad_footprint(data, row_labels, bga_start_x, bga_start_y, optical_offset_x_mm, optical_offset_y_mm)
+            
             with open("BGA_Footprint.kicad_mod", "w") as f:
                 f.write(footprint_text)
 
             print("✅ KiCad footprint saved as BGA_Footprint.kicad_mod")
             print("User Inputs:", data)
 
-        except ValueError:
-            print("⚠️ Invalid input detected. Please enter numbers only.")
+        except ValueError as e:
+            print(f"⚠️ Invalid input detected: {e}")
+            print("Please enter valid numbers only.")
+        except Exception as e:
+            print(f"⚠️ Error occurred: {e}")
+            import traceback
+            traceback.print_exc()
 
 
 if __name__ == "__main__":
